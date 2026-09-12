@@ -16,11 +16,14 @@ import kotlinx.coroutines.flow.asStateFlow
  * When battery drops below the low threshold (default 5%), shows a warning.
  * When it drops below critical threshold (default 2%), auto-stops the stream
  * to prevent data loss (recording needs to be finalized).
+ *
+ * Threshold decisions are delegated to [BatteryThresholdEvaluator] so the
+ * logic is unit-testable on JVM without a Context.
  */
 class BatteryMonitor(
     private val context: Context,
-    private val lowThreshold: Int = 5,
-    private val criticalThreshold: Int = 2,
+    lowThreshold: Int = 5,
+    criticalThreshold: Int = 2,
     private val onLowBattery: () -> Unit,
     private val onCriticalBattery: () -> Unit
 ) {
@@ -28,10 +31,11 @@ class BatteryMonitor(
         private const val TAG = "BatteryMonitor"
     }
 
+    private val evaluator = BatteryThresholdEvaluator(lowThreshold, criticalThreshold)
+
     private val _batteryPercent = MutableStateFlow(100)
     val batteryPercent: StateFlow<Int> = _batteryPercent.asStateFlow()
 
-    private var hasWarnedLow = false
     private var receiver: BroadcastReceiver? = null
 
     fun startMonitoring() {
@@ -42,23 +46,14 @@ class BatteryMonitor(
                 if (level >= 0 && scale > 0) {
                     val percent = (level * 100) / scale
                     _batteryPercent.value = percent
-
-                    // Check thresholds
-                    if (percent <= criticalThreshold) {
-                        RedactingLogger.w(TAG, "CRITICAL battery: $percent%")
-                        onCriticalBattery()
-                    } else if (percent <= lowThreshold && !hasWarnedLow) {
-                        RedactingLogger.w(TAG, "Low battery warning: $percent%")
-                        hasWarnedLow = true
-                        onLowBattery()
-                    }
+                    handleBatteryPercent(percent)
                 }
             }
         }
 
         val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         context.registerReceiver(receiver, filter)
-        RedactingLogger.d(TAG, "Battery monitoring started (low=$lowThreshold%, critical=$criticalThreshold%)")
+        RedactingLogger.d(TAG, "Battery monitoring started (low=${evaluator.lowThreshold}%, critical=${evaluator.criticalThreshold}%)")
     }
 
     fun stopMonitoring() {
@@ -66,7 +61,53 @@ class BatteryMonitor(
             try { context.unregisterReceiver(it) } catch (e: Exception) { /* already unregistered */ }
         }
         receiver = null
-        hasWarnedLow = false
+        evaluator.reset()
         RedactingLogger.d(TAG, "Battery monitoring stopped")
     }
+
+    private fun handleBatteryPercent(percent: Int) {
+        when (evaluator.evaluate(percent)) {
+            BatteryEvent.LOW_WARNING -> {
+                RedactingLogger.w(TAG, "Low battery warning: $percent%")
+                onLowBattery()
+            }
+            BatteryEvent.CRITICAL -> {
+                RedactingLogger.w(TAG, "CRITICAL battery: $percent%")
+                onCriticalBattery()
+            }
+            null -> Unit
+        }
+    }
 }
+
+/**
+ * Pure threshold decision logic for battery-driven stream events.
+ * Separated from [BatteryMonitor] so it is testable on JVM.
+ */
+internal class BatteryThresholdEvaluator(
+    val lowThreshold: Int,
+    val criticalThreshold: Int
+) {
+    private var hasWarnedLow = false
+
+    /**
+     * Evaluate a battery percent and return the event it triggers.
+     * CRITICAL takes precedence over LOW_WARNING, and the low warning
+     * fires only once per [reset] cycle.
+     */
+    fun evaluate(percent: Int): BatteryEvent? = when {
+        percent <= criticalThreshold -> BatteryEvent.CRITICAL
+        percent <= lowThreshold && !hasWarnedLow -> {
+            hasWarnedLow = true
+            BatteryEvent.LOW_WARNING
+        }
+        else -> null
+    }
+
+    /** Clear the one-shot low-warning latch (e.g. when monitoring restarts). */
+    fun reset() {
+        hasWarnedLow = false
+    }
+}
+
+internal enum class BatteryEvent { LOW_WARNING, CRITICAL }
