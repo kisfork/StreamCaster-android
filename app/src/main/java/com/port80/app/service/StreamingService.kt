@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import com.pedro.common.ConnectChecker
 import com.pedro.library.view.OpenGlView
 import com.port80.app.camera.DeviceCapabilityQuery
@@ -101,6 +102,9 @@ class StreamingService : Service(), StreamingServiceControl, ConnectChecker {
 
     // -- CPU wake lock: keeps the CPU running while streaming in background --
     private var wakeLock: PowerManager.WakeLock? = null
+
+    // -- Battery: watches level during streaming, warns low / stops at critical --
+    private var batteryMonitor: BatteryMonitor? = null
 
     // -- Termination guard: prevents duplicate cleanup from overlapping callbacks --
     private val isTerminating = AtomicBoolean(false)
@@ -432,6 +436,7 @@ class StreamingService : Service(), StreamingServiceControl, ConnectChecker {
         stopStatsTicker()
         accumulatedDurationMs = 0L
         releaseWakeLock()
+        stopBatteryMonitoring()
         cameraSwitcher = null
         activeStabilizationMode = StabilizationMode.OFF
         try {
@@ -496,6 +501,52 @@ class StreamingService : Service(), StreamingServiceControl, ConnectChecker {
             }
         }
         wakeLock = null
+    }
+
+    // ── Battery monitoring ─────────────────────────────────────────
+
+    /**
+     * Start monitoring battery level for this stream session.
+     * Low threshold → warning notification; critical threshold → graceful
+     * stop (StopReason.BATTERY_CRITICAL) instead of the OS killing the
+     * stream mid-frame.
+     */
+    private fun startBatteryMonitoring(lowThreshold: Int, criticalThreshold: Int) {
+        stopBatteryMonitoring()
+        batteryMonitor = BatteryMonitor(
+            context = this,
+            lowThreshold = lowThreshold,
+            criticalThreshold = criticalThreshold,
+            onLowBattery = {
+                val percent = batteryMonitor?.batteryPercent?.value
+                if (percent != null) {
+                    showLowBatteryWarning(percent, criticalThreshold)
+                }
+            },
+            onCriticalBattery = {
+                val percent = batteryMonitor?.batteryPercent?.value
+                RedactingLogger.w(TAG, "Critical battery ($percent%) — stopping stream gracefully")
+                terminateService(StopReason.BATTERY_CRITICAL)
+            }
+        ).also { it.startMonitoring() }
+    }
+
+    private fun stopBatteryMonitoring() {
+        batteryMonitor?.stopMonitoring()
+        batteryMonitor = null
+    }
+
+    /** Replace the streaming notification with a low-battery warning. */
+    private fun showLowBatteryWarning(percent: Int, criticalThreshold: Int) {
+        RedactingLogger.w(TAG, "Low battery: $percent% (stream stops at $criticalThreshold%)")
+        val notification = NotificationCompat.Builder(this, NotificationController.CHANNEL_ID)
+            .setContentTitle("StreamCaster — Low Battery")
+            .setContentText("Battery at $percent%. Stream will stop at $criticalThreshold%.")
+            .setSmallIcon(android.R.drawable.ic_lock_idle_low_battery)
+            .setOngoing(true)
+            .setContentIntent(NotificationController.openActivityIntent(this))
+            .build()
+        NotificationManagerCompat.from(this).notify(NotificationController.NOTIFICATION_ID, notification)
     }
 
     private fun startStatsTicker() {
@@ -585,6 +636,13 @@ class StreamingService : Service(), StreamingServiceControl, ConnectChecker {
             activeEncoderConfig = encoderConfig
             activeAutoReconnect = settingsRepository.getAutoReconnectEnabled().first()
             activeMaxReconnectAttempts = settingsRepository.getMaxReconnectAttempts().first()
+
+            // Watch battery with the user-configured thresholds:
+            // warn when low, stop gracefully when critical.
+            startBatteryMonitoring(
+                lowThreshold = settingsRepository.getLowBatteryThreshold().first(),
+                criticalThreshold = settingsRepository.getCriticalBatteryThreshold().first()
+            )
 
             RedactingLogger.d(TAG, "startStream(): invoking encoderBridge.connect()")
             acquireWakeLock()
