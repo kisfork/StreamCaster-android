@@ -57,12 +57,14 @@ import com.port80.app.data.model.CameraInfo
 import com.port80.app.data.model.EndpointProfile
 import com.port80.app.data.model.StopReason
 import com.port80.app.data.model.StreamState
+import com.port80.app.ui.components.BatteryOptimizationGuide
 import com.port80.app.ui.components.CameraPreview
 import com.port80.app.ui.components.CameraPreviewPlaceholder
 import com.port80.app.ui.components.MinimalStreamingOverlay
 import com.port80.app.ui.components.PermissionHandler
 import com.port80.app.ui.components.PreviewPermissionGate
 import com.port80.app.ui.components.StreamHud
+import com.port80.app.ui.components.isAppBatteryOptimized
 import com.port80.app.util.OrientationHelper
 import kotlinx.coroutines.flow.collectLatest
 
@@ -271,11 +273,20 @@ private fun ControlPanel(
         // Start/Stop button — large FAB
         // When previewing: requests RECORD_AUDIO + POST_NOTIFICATIONS to go live
         // When idle: requests all permissions
+        //
+        // Before going live, if the app is still subject to battery optimization,
+        // ask for an exemption: deep Doze (screen off + stationary, ~30 min in)
+        // ignores the wake lock and blocks network, killing the stream.
+        val context = LocalContext.current
+        var showBatteryGuide by remember { mutableStateOf(false) }
+
         PermissionHandler(
             onResult = { result ->
                 if (result.canStreamVideoAndAudio) {
                     if (isStreaming) {
                         viewModel.stopStream()
+                    } else if (isAppBatteryOptimized(context)) {
+                        showBatteryGuide = true
                     } else {
                         viewModel.startStreamWithDefaultProfile()
                     }
@@ -310,6 +321,19 @@ private fun ControlPanel(
                     modifier = Modifier.size(28.dp)
                 )
             }
+        }
+
+        if (showBatteryGuide) {
+            BatteryOptimizationGuide(
+                onAllow = {
+                    showBatteryGuide = false
+                    viewModel.startStreamWithDefaultProfile()
+                },
+                onStreamAnyway = {
+                    showBatteryGuide = false
+                    viewModel.startStreamWithDefaultProfile()
+                }
+            )
         }
 
         // Mute/Unmute button (only shown when streaming)

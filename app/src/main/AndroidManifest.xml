@@ -18,6 +18,14 @@
     <!-- Wake lock for keeping CPU active during streaming -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!--
+      Battery-optimization exemption request. Deep Doze (screen off + stationary +
+      on battery, after ~30 min) ignores wake locks and blocks network access, which
+      kills long-running streams. The app asks the user for an exemption before going
+      live; the core use case (live streaming while the screen is off) justifies it.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
     <!-- Hardware features (not required — app can run without them) -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
