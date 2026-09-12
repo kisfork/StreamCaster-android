@@ -654,6 +654,7 @@ The ABR system adjusts bitrate automatically based on network conditions. Resolu
 | `FOREGROUND_SERVICE_MICROPHONE` | API 34+ | Foreground service type declaration |
 | `POST_NOTIFICATIONS` | API 33+ | Show the persistent streaming notification |
 | `WAKE_LOCK` | All | Keep CPU active during streaming |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | All | Ask for a Doze exemption before going live; deep Doze (screen off + stationary, ~30 min) ignores wake locks and blocks network, stopping long streams |
 
 Hardware features (`camera`, `camera.autofocus`, `microphone`) are declared as `android:required="false"` so the app can be installed on devices without a camera (for audio-only streaming).
 
