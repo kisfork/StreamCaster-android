@@ -57,18 +57,24 @@ jobs:
         run: ./gradlew testFossDebugUnitTest
 
       # ── 7. F-Droid GMS guard — the FOSS flavor must never pull in any
-      #    Google Mobile Services library. If grep finds a match the step
-      #    fails, blocking the PR from merging.
+      #    Google Mobile Services runtime API. Policy (see
+      #    .github/copilot-instructions.md, "QR Scanner Exception"): bundled
+      #    ML Kit barcode scanning is accepted for offline QR endpoint import,
+      #    and its known transitive play-services-* support artifacts are
+      #    allowlisted. Anything else fails the build.
       - name: Verify FOSS flavor has no GMS dependencies
         run: |
-          # List all runtime dependencies for the FOSS release configuration
-          # and search for any reference to Google Mobile Services.
-          # "grep -i gms" returns exit code 0 if it finds a match (bad!),
-          # so we invert the logic: the step passes only when grep finds nothing.
-          MATCHES=$(./gradlew :app:dependencies --configuration fossReleaseRuntimeClasspath | grep -i gms || true)
+          ALLOWLIST='com\.google\.android\.gms:play-services-basement|com\.google\.android\.gms:play-services-base|com\.google\.android\.gms:play-services-tasks|com\.google\.android\.gms:play-services-mlkit-barcode-scanning'
+          # List all runtime dependencies for the FOSS release configuration,
+          # keep only com.google.android.gms coordinates, then drop the
+          # allowlisted bundled-ML-Kit transitives. The step passes only when
+          # nothing remains.
+          MATCHES=$(./gradlew :app:dependencies --configuration fossReleaseRuntimeClasspath \
+            | grep -i 'com\.google\.android\.gms:' \
+            | grep -Ev "$ALLOWLIST" || true)
           if [ -n "$MATCHES" ]; then
-            echo "::error::FOSS flavor must not depend on GMS. Found:"
+            echo "::error::FOSS flavor must not depend on GMS (beyond the bundled ML Kit allowlist). Found:"
             echo "$MATCHES"
             exit 1
           fi
-          echo "✅ No GMS dependencies found in FOSS flavor."
+          echo "✅ No non-allowlisted GMS dependencies found in FOSS flavor."
