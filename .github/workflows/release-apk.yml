@@ -9,12 +9,17 @@ on:
         description: Tag to upload APK assets to (for example, v1.2.3)
         required: true
         type: string
+  # Fallback for forks where the release-published webhook does not fire:
+  # pushing a v* tag builds and attaches the APKs for that tag.
+  push:
+    tags:
+      - 'v*'
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-apk-${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+  group: release-apk-${{ github.event.release.tag_name || github.event.inputs.release_tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -41,13 +46,13 @@ jobs:
       - name: Rename APK for release asset
         run: |
           cp app/build/outputs/apk/foss/debug/app-foss-debug.apk \
-            app/build/outputs/apk/foss/debug/streamcaster-foss-debug-${{ github.event.release.tag_name || github.event.inputs.release_tag }}.apk
+            app/build/outputs/apk/foss/debug/streamcaster-foss-debug-${{ github.event.release.tag_name || github.event.inputs.release_tag || github.ref_name }}.apk
 
       - name: Upload APK to GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
-          files: app/build/outputs/apk/foss/debug/streamcaster-foss-debug-${{ github.event.release.tag_name || github.event.inputs.release_tag }}.apk
+          tag_name: ${{ github.event.release.tag_name || github.event.inputs.release_tag || github.ref_name }}
+          files: app/build/outputs/apk/foss/debug/streamcaster-foss-debug-${{ github.event.release.tag_name || github.event.inputs.release_tag || github.ref_name }}.apk
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,14 +91,14 @@ jobs:
             exit 1
           fi
 
-          OUTPUT_APK="$INPUT_DIR/streamcaster-${{ matrix.flavor }}-release-${{ github.event.release.tag_name || github.event.inputs.release_tag }}.apk"
+          OUTPUT_APK="$INPUT_DIR/streamcaster-${{ matrix.flavor }}-release-${{ github.event.release.tag_name || github.event.inputs.release_tag || github.ref_name }}.apk"
           cp "$INPUT_APK" "$OUTPUT_APK"
           echo "output_apk=$OUTPUT_APK" >> "$GITHUB_OUTPUT"
 
       - name: Upload release APK to GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name || github.event.inputs.release_tag }}
+          tag_name: ${{ github.event.release.tag_name || github.event.inputs.release_tag || github.ref_name }}
           files: ${{ steps.rename_apk.outputs.output_apk }}
           fail_on_unmatched_files: true
         env:
