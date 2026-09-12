@@ -565,7 +565,7 @@ If you deny a permission, the app will show a rationale dialog. You can grant pe
 
 #### QR Endpoint Payload Format
 
-QR import accepts either a plain endpoint URL or a versioned JSON object. RTMP/RTMPS URLs may include the stream key as the final path segment; StreamCaster splits it into `URL` and `Stream Key` before showing the editor.
+QR import accepts either a plain endpoint URL or a versioned JSON object. RTMP/RTMPS URLs may include the stream key as the final path segment; StreamCaster splits it into `URL` and `Stream Key` before showing the editor. SRT URLs may include `streamid`, `passphrase`, `latency`, `pbkeylen`, and `mode` query params; StreamCaster splits them into the matching fields (in the JSON format, explicit fields take precedence over URL-embedded params).
 
 ```json
 {
