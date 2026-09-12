@@ -74,8 +74,12 @@ Always branch on `Build.VERSION.SDK_INT` for API-conditional behavior:
 # Unit tests
 ./gradlew testFossDebugUnitTest
 
-# F-Droid GMS check: matches must be limited to bundled ML Kit and its transitive support artifacts
-./gradlew :app:dependencies --configuration fossReleaseRuntimeClasspath | grep -i "gms\|play-services\|mlkit"
+# F-Droid GMS check: fails on any com.google.android.gms coordinate outside the
+# bundled ML Kit transitive allowlist (basement, base, tasks, mlkit-barcode-scanning).
+# Same logic as the CI step "Verify FOSS flavor has no GMS dependencies".
+./gradlew -q :app:dependencies --configuration fossReleaseRuntimeClasspath \
+  | grep -i 'com\.google\.android\.gms:' \
+  | grep -Ev 'com\.google\.android\.gms:play-services-basement|com\.google\.android\.gms:play-services-base|com\.google\.android\.gms:play-services-tasks|com\.google\.android\.gms:play-services-mlkit-barcode-scanning'
 
 # Instrumented tests
 ./gradlew connectedFossDebugAndroidTest
