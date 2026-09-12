@@ -96,6 +96,59 @@ class QrEndpointImportParserTest {
     }
 
     @Test
+    fun `plain srt url with query params splits into fields`() {
+        val result = QrEndpointImportParser.parse(
+            "srt://srt.example.com:9741?streamid=anything&passphrase=3bb23120f436eeec6e4a55f5e1f6b684b52b9fec7924c75616b11cbde489272c"
+        )
+
+        assertTrue(result is QrEndpointParseResult.Success)
+        val candidate = (result as QrEndpointParseResult.Success).candidate
+        assertEquals("srt://srt.example.com:9741", candidate.url)
+        assertEquals("anything", candidate.srtStreamId)
+        assertEquals(
+            "3bb23120f436eeec6e4a55f5e1f6b684b52b9fec7924c75616b11cbde489272c",
+            candidate.srtPassphrase
+        )
+    }
+
+    @Test
+    fun `plain srt url params map to typed candidate fields`() {
+        val result = QrEndpointImportParser.parse(
+            "srt://srt.example.com:9000?streamid=#!::m=publish,r=live/test&latency=250&pbkeylen=32"
+        )
+
+        assertTrue(result is QrEndpointParseResult.Success)
+        val candidate = (result as QrEndpointParseResult.Success).candidate
+        assertEquals("srt://srt.example.com:9000", candidate.url)
+        assertEquals("#!::m=publish,r=live/test", candidate.srtStreamId)
+        assertEquals(250, candidate.srtLatencyMs)
+        assertEquals(SrtKeyLength.AES_256, candidate.srtKeyLength)
+    }
+
+    @Test
+    fun `json srt url params are used but explicit json fields win`() {
+        val rawJson = """
+            {
+              "v": 1,
+              "name": "SRT ingest",
+              "url": "srt://srt.example.com:9000?streamid=urlid&passphrase=urlpass123&latency=300",
+              "srtStreamId": "jsonid",
+              "srtPassphrase": "jsonpass123"
+            }
+        """.trimIndent()
+
+        val result = QrEndpointImportParser.parse(rawJson)
+
+        assertTrue(result is QrEndpointParseResult.Success)
+        val candidate = (result as QrEndpointParseResult.Success).candidate
+        assertEquals("srt://srt.example.com:9000", candidate.url)
+        assertEquals("jsonid", candidate.srtStreamId)
+        assertEquals("jsonpass123", candidate.srtPassphrase)
+        // No explicit JSON latency — the URL-embedded one applies.
+        assertEquals(300, candidate.srtLatencyMs)
+    }
+
+    @Test
     fun `duplicate key uses normalized URL and stream identity`() {
         val saved = EndpointProfile(
             id = "saved",

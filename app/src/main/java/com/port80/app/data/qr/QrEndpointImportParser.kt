@@ -3,6 +3,7 @@ package com.port80.app.data.qr
 import com.port80.app.data.model.EndpointProfile
 import com.port80.app.data.model.SrtKeyLength
 import com.port80.app.data.model.SrtMode
+import com.port80.app.data.model.SrtUrlParams
 import com.port80.app.data.model.StreamProtocol
 import com.port80.app.data.model.VideoCodec
 import org.json.JSONObject
@@ -95,8 +96,14 @@ object QrEndpointImportParser {
                 return QrEndpointParseResult.Invalid("Unsupported QR schema version: $version")
             }
 
+            // SRT URLs may embed streamid/passphrase/latency/pbkeylen/mode as
+            // query params. Split them out so the URL stays clean and the
+            // values land in the dedicated profile fields; explicit JSON
+            // fields take precedence over URL-embedded ones.
+            val rawUrl = json.optStringOrNull("url")
+            val srtParams = rawUrl?.let { if (StreamProtocol.fromUrl(it) == StreamProtocol.SRT) SrtUrlParams.parse(it) else null }
             val normalized = normalizeEndpointParts(
-                rawUrl = json.optStringOrNull("url"),
+                rawUrl = srtParams?.baseUrl ?: rawUrl,
                 rawStreamKey = json.optStringOrNull("streamKey")
             ) ?: return QrEndpointParseResult.Invalid("Endpoint URL is missing or unsupported")
 
@@ -108,11 +115,21 @@ object QrEndpointImportParser {
                 username = if (protocol == StreamProtocol.SRT) null else json.optStringOrNull("username"),
                 password = if (protocol == StreamProtocol.SRT) null else json.optStringOrNull("password"),
                 videoCodec = parseVideoCodec(json.optStringOrNull("videoCodec"), protocol),
-                srtPassphrase = if (protocol == StreamProtocol.SRT) json.optStringOrNull("srtPassphrase") else null,
-                srtKeyLength = SrtKeyLength.fromString(json.optStringOrNull("srtKeyLength")),
-                srtLatencyMs = json.optIntOrNull("srtLatencyMs") ?: 120,
-                srtMode = SrtMode.fromString(json.optStringOrNull("srtMode")),
-                srtStreamId = if (protocol == StreamProtocol.SRT) json.optStringOrNull("srtStreamId") else null,
+                srtPassphrase = if (protocol == StreamProtocol.SRT) {
+                    json.optStringOrNull("srtPassphrase") ?: srtParams?.passphrase
+                } else null,
+                srtKeyLength = json.optStringOrNull("srtKeyLength")?.let { SrtKeyLength.fromString(it) }
+                    ?: srtParams?.keyLength
+                    ?: SrtKeyLength.AES_128,
+                srtLatencyMs = json.optIntOrNull("srtLatencyMs")
+                    ?: srtParams?.latencyMs
+                    ?: 120,
+                srtMode = json.optStringOrNull("srtMode")?.let { SrtMode.fromString(it) }
+                    ?: srtParams?.mode
+                    ?: SrtMode.CALLER,
+                srtStreamId = if (protocol == StreamProtocol.SRT) {
+                    json.optStringOrNull("srtStreamId") ?: srtParams?.streamId
+                } else null,
                 requestedDefault = json.optBooleanOrFalse("isDefault")
             )
 
@@ -123,7 +140,13 @@ object QrEndpointImportParser {
     }
 
     private fun parsePlainUrl(rawUrl: String): QrEndpointParseResult {
-        val normalized = normalizeEndpointParts(rawUrl, rawStreamKey = null)
+        val trimmedUrl = rawUrl.trim()
+        // SRT URLs may embed connection params as query params; split them
+        // into the dedicated fields instead of dropping them at connect time.
+        val srtParams = if (StreamProtocol.fromUrl(trimmedUrl) == StreamProtocol.SRT) {
+            SrtUrlParams.parse(trimmedUrl)
+        } else null
+        val normalized = normalizeEndpointParts(srtParams?.baseUrl ?: trimmedUrl, rawStreamKey = null)
             ?: return QrEndpointParseResult.Invalid("QR code is not a supported endpoint URL")
         val protocol = StreamProtocol.fromUrl(normalized.url)
         return validateCandidate(
@@ -131,6 +154,11 @@ object QrEndpointImportParser {
                 name = defaultNameFor(protocol),
                 url = normalized.url,
                 streamKey = if (protocol == StreamProtocol.SRT) "" else normalized.streamKey,
+                srtPassphrase = if (protocol == StreamProtocol.SRT) srtParams?.passphrase else null,
+                srtKeyLength = srtParams?.keyLength ?: SrtKeyLength.AES_128,
+                srtLatencyMs = if (protocol == StreamProtocol.SRT) srtParams?.latencyMs ?: 120 else 120,
+                srtMode = srtParams?.mode ?: SrtMode.CALLER,
+                srtStreamId = if (protocol == StreamProtocol.SRT) srtParams?.streamId else null,
                 videoCodec = VideoCodec.H264
             )
         )

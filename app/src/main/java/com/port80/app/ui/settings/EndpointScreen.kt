@@ -50,6 +50,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.port80.app.data.model.EndpointProfile
 import com.port80.app.data.model.SrtKeyLength
 import com.port80.app.data.model.SrtMode
+import com.port80.app.data.model.SrtUrlParams
 import com.port80.app.data.model.StreamProtocol
 import com.port80.app.data.model.VideoCodec
 
@@ -461,6 +462,22 @@ private fun EditProfileDialog(
     val isNewProfile = profile.name.isBlank() && profile.url.isBlank()
     val detectedProtocol = StreamProtocol.fromUrl(url)
     val isSrt = detectedProtocol == StreamProtocol.SRT
+
+    // A pasted SRT URL often carries connection params as a query string
+    // (e.g. srt://host:port?streamid=x&passphrase=y). The streaming stack
+    // never reads them from the URL, so split them into the dedicated fields
+    // and keep only host:port in the URL. The effect re-runs only when the
+    // URL gains a query — after stripping, the clean URL no longer matches.
+    LaunchedEffect(url) {
+        if (!isSrt) return@LaunchedEffect
+        val parsed = SrtUrlParams.parse(url) ?: return@LaunchedEffect
+        url = parsed.baseUrl
+        parsed.streamId?.let { srtStreamId = it }
+        parsed.passphrase?.let { srtPassphrase = it }
+        parsed.latencyMs?.let { srtLatencyMs = it.toString() }
+        parsed.keyLength?.let { srtKeyLength = it }
+        parsed.mode?.let { srtMode = it }
+    }
 
     // Filter codecs: AV1 not available for SRT
     val availableCodecs = if (isSrt) {
