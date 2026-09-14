@@ -935,6 +935,11 @@ class StreamingService : Service(), StreamingServiceControl, ConnectChecker {
             try {
                 RedactingLogger.i(TAG, "Attempting reconnect...")
                 encoderBridge?.disconnect()
+                // RootEncoder's disconnect runs its cleanup on a separate
+                // coroutine; give it a beat to settle before reconnecting
+                // (the engine fork fixes the underlying race, this is
+                // defense in depth for any remaining path).
+                delay(250)
                 encoderBridge?.connect(params, config)
                 // Success/failure comes via ConnectChecker callbacks
             } catch (e: Exception) {
