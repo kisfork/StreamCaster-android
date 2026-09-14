@@ -1,5 +1,6 @@
 package com.port80.app.service
 
+import android.os.SystemClock
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -64,6 +65,9 @@ class ConnectionManager(
     @Volatile
     private var attemptInFlight = false
     var isReconnecting: Boolean = false
+
+    /** elapsedRealtime when the connection dropped (0 = none). */
+    private var disconnectedAtMs: Long = 0L
         private set
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
@@ -93,6 +97,7 @@ class ConnectionManager(
                 }
                 RedactingLogger.w(TAG, "Connection lost — starting reconnect")
                 isReconnecting = true
+                disconnectedAtMs = SystemClock.elapsedRealtime()
                 currentAttempt = 0
                 scheduleRetry()
             }
@@ -127,6 +132,7 @@ class ConnectionManager(
                     RedactingLogger.i(TAG, "Reconnected successfully!")
                     currentAttempt = 0
                     isReconnecting = false
+                    disconnectedAtMs = 0L
                     reconnectPolicy.reset()
                     // Don't emit Live — the service's onConnectionSuccess handles that
                 } else {
@@ -160,7 +166,9 @@ class ConnectionManager(
         }
 
         val delayMs = reconnectPolicy.nextDelayMs(currentAttempt)
-        onStateChanged?.invoke(StreamState.Reconnecting(currentAttempt, delayMs, reconnectPolicy.maxAttempts))
+        onStateChanged?.invoke(
+            StreamState.Reconnecting(currentAttempt, delayMs, reconnectPolicy.maxAttempts, disconnectedAtMs)
+        )
 
         retryJob?.cancel()
         retryJob = scope.launch {

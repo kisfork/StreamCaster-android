@@ -38,7 +38,10 @@ interface ReconnectPolicy {
 class ExponentialBackoffReconnectPolicy(
     private val baseDelayMs: Long = 3_000L,
     private val maxDelayMs: Long = 60_000L,
-    override val maxAttempts: Int = 10,
+    // A live publisher should retry for as long as it takes — the
+    // ingest waits, sessions rotate, viewers follow. The cap exists
+    // for policies that deliberately give up.
+    override val maxAttempts: Int = Int.MAX_VALUE,
     private val jitterFactor: Double = 0.2
 ) : ReconnectPolicy {
 

@@ -37,7 +37,7 @@ class ConnectionManagerTest {
     private val powerManager = mockk<PowerManager>()
 
     private val policy = ExponentialBackoffReconnectPolicy(
-        baseDelayMs = 3_000L, maxDelayMs = 60_000L, jitterFactor = 0.0
+        baseDelayMs = 3_000L, maxDelayMs = 60_000L, maxAttempts = 10, jitterFactor = 0.0
     )
 
     private lateinit var connectionManager: ConnectionManager

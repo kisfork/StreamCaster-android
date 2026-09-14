@@ -38,7 +38,14 @@ sealed class StreamState {
      * @param nextRetryMs milliseconds until the next retry attempt
      * @param maxAttempts total configured retry attempts before giving up
      */
-    data class Reconnecting(val attempt: Int, val nextRetryMs: Long, val maxAttempts: Int) : StreamState()
+    data class Reconnecting(
+        val attempt: Int,
+        val nextRetryMs: Long,
+        val maxAttempts: Int,
+        /** elapsedRealtime when the connection dropped — the HUD and
+         *  notification show how long the disconnection has lasted. */
+        val disconnectedAtMs: Long = 0L
+    ) : StreamState()
 
     /** Graceful shutdown is in progress (finalizing recording, closing connection). */
     data object Stopping : StreamState()

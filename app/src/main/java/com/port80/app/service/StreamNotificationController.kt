@@ -1,5 +1,6 @@
 package com.port80.app.service
 
+import android.os.SystemClock
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -86,8 +87,9 @@ class StreamNotificationController @Inject constructor(
                 )
             }
             is StreamState.Reconnecting -> {
-                builder.setContentTitle("Reconnecting...")
-                    .setContentText("Attempt ${state.attempt + 1}/${state.maxAttempts} \u2022 Retry in ${state.nextRetryMs / 1000}s")
+                val forMs = if (state.disconnectedAtMs > 0) SystemClock.elapsedRealtime() - state.disconnectedAtMs else 0L
+                builder.setContentTitle("Reconnecting (attempt ${state.attempt + 1})")
+                    .setContentText("Disconnected for ${forMs / 1000}s \u2022 retry in ${state.nextRetryMs / 1000}s")
                     .addAction(
                         android.R.drawable.ic_media_pause,
                         "Stop",

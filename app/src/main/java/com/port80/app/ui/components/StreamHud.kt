@@ -8,6 +8,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -17,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import com.port80.app.data.model.StreamStats
 import com.port80.app.data.model.StreamState
 import com.port80.app.data.model.ThermalLevel
+import kotlinx.coroutines.delay
+import android.os.SystemClock
 
 /**
  * Heads-Up Display overlay for the streaming screen.
@@ -32,6 +39,15 @@ fun StreamHud(
     reconnectState: StreamState.Reconnecting? = null,
     modifier: Modifier = Modifier
 ) {
+    // Ticking clock so the reconnect badge shows a live "disconnected
+    // for" duration between state emissions (retry waits run up to 60s).
+    var nowMs by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    LaunchedEffect(reconnectState != null) {
+        while (true) {
+            delay(1_000)
+            nowMs = SystemClock.elapsedRealtime()
+        }
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -54,7 +70,7 @@ fun StreamHud(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             reconnectState?.let { state ->
                 HudBadge(
-                    text = "RECONNECTING ${state.attempt + 1}/${state.maxAttempts}",
+                    text = "RECONNECTING " + formatDuration((nowMs - state.disconnectedAtMs).coerceAtLeast(0)),
                     color = Color(0xFFFF8800)
                 )
             }
