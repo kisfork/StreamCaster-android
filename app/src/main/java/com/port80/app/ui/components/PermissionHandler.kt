@@ -127,3 +127,33 @@ fun PermissionHandler(
     // Render the caller's content with the permission request function
     content(requestPermissions)
 }
+
+/**
+ * Asks for every runtime permission the app needs, once, at launch —
+ * camera, microphone, and (on API 33+) notifications — instead of
+ * waiting for the first Start tap. The streaming flow re-checks and
+ * re-asks for anything still denied, so a refusal here is not final.
+ */
+@Composable
+fun LaunchPermissionRequest() {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* results re-checked by the streaming flow when needed */ }
+
+    LaunchedEffect(Unit) {
+        val needed = buildList {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED
+            ) add(Manifest.permission.CAMERA)
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED
+            ) add(Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (needed.isNotEmpty()) launcher.launch(needed.toTypedArray())
+    }
+}

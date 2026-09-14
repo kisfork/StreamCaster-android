@@ -1,5 +1,6 @@
 package com.port80.app
 
+import com.port80.app.ui.components.LaunchPermissionRequest
 import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -34,6 +35,11 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme {
+                // Ask for every runtime permission the app needs up
+                // front (camera, microphone, notifications) instead of
+                // at the first Start tap; refusals are re-asked by the
+                // streaming flow when they actually matter.
+                LaunchPermissionRequest()
                 AppNavGraph()
             }
         }
