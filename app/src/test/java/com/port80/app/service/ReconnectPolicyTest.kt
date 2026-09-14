@@ -55,10 +55,11 @@ class ReconnectPolicyTest {
     }
 
     @Test
-    fun `default policy caps retries at 10`() {
+    fun `default policy retries without limit`() {
         val policy = ExponentialBackoffReconnectPolicy()
         assertTrue(policy.shouldRetry(0))
         assertTrue(policy.shouldRetry(9))
-        assertFalse(policy.shouldRetry(10))
+        assertTrue(policy.shouldRetry(1_000))
+        assertTrue(policy.shouldRetry(1_000_000))
     }
 }
