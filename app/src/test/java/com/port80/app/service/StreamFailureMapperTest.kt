@@ -30,7 +30,15 @@ class StreamFailureMapperTest {
     @Test
     fun `mapFailureReason defaults to ENCODER error`() {
         assertEquals(StopReason.ERROR_ENCODER, StreamFailureMapper.mapFailureReason("Unknown error"))
-        assertEquals(StopReason.ERROR_ENCODER, StreamFailureMapper.mapFailureReason("Network unreachable")) // Network errors often manifest as connection failures which we treat as generic encoder stops or handle via retry logic, but simplified here
+    }
+
+    @Test
+    fun `mapFailureReason detects NETWORK errors`() {
+        assertEquals(StopReason.ERROR_NETWORK, StreamFailureMapper.mapFailureReason("Network unreachable"))
+        assertEquals(StopReason.ERROR_NETWORK, StreamFailureMapper.mapFailureReason("No response from server"))
+        assertEquals(StopReason.ERROR_NETWORK, StreamFailureMapper.mapFailureReason("read buffer failed, socket disconnected"))
+        assertEquals(StopReason.ERROR_NETWORK, StreamFailureMapper.mapFailureReason("Shutdown received from server"))
+        assertEquals(StopReason.ERROR_NETWORK, StreamFailureMapper.mapFailureReason("Connection timed out"))
     }
 
     @Test
