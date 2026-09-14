@@ -845,6 +845,12 @@ class StreamingService : Service(), StreamingServiceControl, ConnectChecker {
         ) {
             // A reconnect attempt failed — notify CM to schedule next retry
             cm.notifyReconnectResult(false)
+        } else if (cm != null && StreamFailureMapper.isRetryable(reason)) {
+            // Retryable failure mid-stream (state was Streaming): enter
+            // the reconnect loop instead of terminating — the publisher
+            // reconnects and the ingest bridge rotates sessions for it.
+            RedactingLogger.w(TAG, "Retryable failure mid-stream — reconnecting")
+            cm.onConnectionLost()
         } else {
             // Non-retryable, or initial connection, or no CM — terminate
             cm?.stop()

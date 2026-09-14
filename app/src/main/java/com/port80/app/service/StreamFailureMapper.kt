@@ -14,8 +14,24 @@ object StreamFailureMapper {
             "AUTH" in normalized -> StopReason.ERROR_AUTH
             "AUDIO" in normalized -> StopReason.ERROR_AUDIO
             "CAMERA" in normalized || "PREVIEW" in normalized -> StopReason.ERROR_CAMERA
+            // Network/transport failures from the streaming engine — a
+            // lost connection is not an encoder problem, and reporting
+            // it as one hides the real cause from the user.
+            isNetworkFailure(normalized) -> StopReason.ERROR_NETWORK
             else -> StopReason.ERROR_ENCODER
         }
+    }
+
+    private fun isNetworkFailure(normalized: String): Boolean {
+        return "NO RESPONSE" in normalized ||
+            "SHUTDOWN" in normalized ||
+            "PEERERROR" in normalized ||
+            "SOCKET" in normalized ||
+            "READ BUFFER" in normalized ||
+            "BROKEN PIPE" in normalized ||
+            "TIMED OUT" in normalized || "TIMEOUT" in normalized ||
+            "REFUSED" in normalized ||
+            "UNREACHABLE" in normalized || "NO ROUTE" in normalized
     }
 
     /**

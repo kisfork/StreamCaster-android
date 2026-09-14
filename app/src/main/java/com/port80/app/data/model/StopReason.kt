@@ -9,6 +9,8 @@ enum class StopReason {
     USER_REQUEST,
     /** No valid endpoint profile could be resolved when starting a stream. */
     ERROR_PROFILE,
+    /** The network connection to the ingest was lost mid-stream. */
+    ERROR_NETWORK,
     /** The video/audio encoder crashed or could not be restarted. */
     ERROR_ENCODER,
     /** RTMP server rejected our credentials (wrong stream key or password). */
