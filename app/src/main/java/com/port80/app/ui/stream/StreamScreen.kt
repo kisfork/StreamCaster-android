@@ -583,6 +583,7 @@ private fun stoppedLabel(reason: StopReason): Pair<String, Color> = when (reason
     StopReason.USER_REQUEST -> "Stopped" to Color.White
     StopReason.ERROR_PROFILE -> "Profile Missing" to Color.Red
     StopReason.ERROR_AUTH -> "Auth Failed" to Color.Red
+    StopReason.ERROR_NETWORK -> "Connection Lost" to Color.Red
     StopReason.ERROR_ENCODER -> "Encoder Error" to Color.Red
     StopReason.ERROR_CAMERA -> "Camera Error" to Color.Red
     StopReason.ERROR_AUDIO -> "Audio Error" to Color.Red
@@ -597,6 +598,9 @@ private fun stoppedMessage(reason: StopReason, detail: String?): String {
 
         StopReason.ERROR_AUTH ->
             "Server rejected authentication. Verify stream key/username/password."
+
+        StopReason.ERROR_NETWORK ->
+            "Connection to the ingest was lost. Check network and endpoint reachability, then retry."
 
         StopReason.ERROR_CAMERA ->
             "Camera error while preparing stream. Check camera permission and close other camera apps."
