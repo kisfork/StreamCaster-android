@@ -50,15 +50,6 @@ class EndpointViewModel @Inject constructor(
         _editingProfile.value = null
     }
 
-    fun newProfile() {
-        _editingProfile.value = EndpointProfile(
-            id = UUID.randomUUID().toString(),
-            name = "",
-            url = "",
-            streamKey = ""
-        )
-    }
-
     fun saveProfile(profile: EndpointProfile) {
         viewModelScope.launch {
             profileRepository.save(profile)

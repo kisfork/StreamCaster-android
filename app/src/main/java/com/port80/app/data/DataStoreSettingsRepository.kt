@@ -34,6 +34,7 @@ class DataStoreSettingsRepository @Inject constructor(
 
         // General
         val KEY_ABR_ENABLED = booleanPreferencesKey("abr_enabled")
+        val KEY_BATTERY_GUIDE_DISMISSED = booleanPreferencesKey("battery_guide_dismissed")
         val KEY_DEFAULT_CAMERA_ID = stringPreferencesKey("default_camera_id")
         val KEY_ORIENTATION_LOCKED = booleanPreferencesKey("orientation_locked")
         val KEY_PREFERRED_ORIENTATION = intPreferencesKey("preferred_orientation")
@@ -151,6 +152,14 @@ class DataStoreSettingsRepository @Inject constructor(
 
     override suspend fun setAbrEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[KEY_ABR_ENABLED] = enabled }
+    }
+
+    override fun getBatteryGuideDismissed(): Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_BATTERY_GUIDE_DISMISSED] ?: false
+    }
+
+    override suspend fun setBatteryGuideDismissed(dismissed: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_BATTERY_GUIDE_DISMISSED] = dismissed }
     }
 
     override fun getDefaultCameraId(): Flow<String> = dataStore.data.map { prefs ->

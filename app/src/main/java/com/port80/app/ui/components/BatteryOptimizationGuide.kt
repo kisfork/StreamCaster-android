@@ -6,11 +6,16 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 
 /**
  * Asks the user to exempt StreamCaster from battery optimization before going live.
@@ -34,7 +39,17 @@ fun BatteryOptimizationGuide(
     AlertDialog(
         onDismissRequest = onStreamAnyway,
         title = { Text("Allow Background Streaming?") },
-        text = { Text(getBatteryGuideText()) },
+        text = {
+            Column {
+                Text(getBatteryGuideText())
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Stream Anyway starts now and is not asked again.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
         confirmButton = {
             TextButton(onClick = {
                 requestBatteryExemption(context)

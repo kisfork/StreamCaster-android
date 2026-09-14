@@ -278,6 +278,7 @@ private fun ControlPanel(
         // ask for an exemption: deep Doze (screen off + stationary, ~30 min in)
         // ignores the wake lock and blocks network, killing the stream.
         val context = LocalContext.current
+        val batteryGuideDismissed by viewModel.batteryGuideDismissed.collectAsState()
         var showBatteryGuide by remember { mutableStateOf(false) }
 
         PermissionHandler(
@@ -285,7 +286,7 @@ private fun ControlPanel(
                 if (result.canStreamVideoAndAudio) {
                     if (isStreaming) {
                         viewModel.stopStream()
-                    } else if (isAppBatteryOptimized(context)) {
+                    } else if (isAppBatteryOptimized(context) && !batteryGuideDismissed) {
                         showBatteryGuide = true
                     } else {
                         viewModel.startStreamWithDefaultProfile()
@@ -331,6 +332,7 @@ private fun ControlPanel(
                 },
                 onStreamAnyway = {
                     showBatteryGuide = false
+                    viewModel.dismissBatteryGuide()
                     viewModel.startStreamWithDefaultProfile()
                 }
             )

@@ -37,6 +37,11 @@ interface SettingsRepository {
     fun getAbrEnabled(): Flow<Boolean>
     suspend fun setAbrEnabled(enabled: Boolean)
 
+    /** Whether the user dismissed the background-streaming (battery)
+     *  guide with "Stream Anyway" — asked once, not on every start. */
+    fun getBatteryGuideDismissed(): Flow<Boolean>
+    suspend fun setBatteryGuideDismissed(dismissed: Boolean)
+
     fun getDefaultCameraId(): Flow<String>
     suspend fun setDefaultCameraId(cameraId: String)
 

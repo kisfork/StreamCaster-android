@@ -112,6 +112,14 @@ class StreamViewModel @Inject constructor(
     val keepScreenOnSetting: StateFlow<Boolean> = settingsRepository.getKeepScreenOn()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    /** Asked-once dismissal of the background-streaming (battery) guide. */
+    val batteryGuideDismissed: StateFlow<Boolean> = settingsRepository.getBatteryGuideDismissed()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun dismissBatteryGuide() {
+        viewModelScope.launch { settingsRepository.setBatteryGuideDismissed(true) }
+    }
+
     // ── Endpoint profiles ────────────────────────
 
     /** All configured streaming endpoint profiles. */

@@ -86,7 +86,7 @@ fun EndpointScreen(
 
     // Track which profile the user wants to delete (shows confirmation dialog).
     var profileToDelete by remember { mutableStateOf<EndpointProfile?>(null) }
-    var showAddOptions by remember { mutableStateOf(false) }
+    var showScanBlocked by remember { mutableStateOf(false) }
 
     // Navigation returns raw QR text through savedStateHandle. Consume it once
     // so recomposition does not import the same QR code repeatedly.
@@ -110,10 +110,14 @@ fun EndpointScreen(
                 }
             )
         },
-        // Floating button opens a small chooser: manual entry or QR scan.
+        // Floating button opens the QR scanner — endpoints are created
+        // by scanning a platform QR code, never by hand.
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddOptions = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add profile")
+            FloatingActionButton(onClick = {
+                if (hasCamera && !isStreamActive) onNavigateToQrScanner()
+                else showScanBlocked = true
+            }) {
+                Icon(Icons.Default.Add, contentDescription = "Scan endpoint QR code")
             }
         }
     ) { innerPadding ->
@@ -145,19 +149,15 @@ fun EndpointScreen(
         }
     }
 
-    if (showAddOptions) {
-        AddEndpointOptionsDialog(
-            hasCamera = hasCamera,
-            isStreamActive = isStreamActive,
-            onManualEntry = {
-                showAddOptions = false
-                viewModel.newProfile()
+    if (showScanBlocked) {
+        MessageDialog(
+            title = "Scanner Unavailable",
+            message = if (!hasCamera) {
+                "This device has no camera, so QR scanning is unavailable."
+            } else {
+                "Stop the current stream or preview before scanning."
             },
-            onScanQr = {
-                showAddOptions = false
-                onNavigateToQrScanner()
-            },
-            onDismiss = { showAddOptions = false }
+            onDismiss = { showScanBlocked = false }
         )
     }
 
@@ -206,56 +206,6 @@ fun EndpointScreen(
             onDismiss = { viewModel.dismissImportDialog() }
         )
     }
-}
-
-// ── Add Options Dialog ──────────────────────────────────────────
-
-/** Lets the user choose whether to type an endpoint or scan a QR code. */
-@Composable
-private fun AddEndpointOptionsDialog(
-    hasCamera: Boolean,
-    isStreamActive: Boolean,
-    onManualEntry: () -> Unit,
-    onScanQr: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add Endpoint") },
-        text = {
-            Column {
-                TextButton(onClick = onManualEntry, modifier = Modifier.fillMaxWidth()) {
-                    Text("Manual Entry")
-                }
-                TextButton(
-                    onClick = onScanQr,
-                    enabled = hasCamera && !isStreamActive,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Scan QR Code")
-                }
-                if (!hasCamera) {
-                    Text(
-                        text = "This device has no camera, so QR scanning is unavailable.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else if (isStreamActive) {
-                    Text(
-                        text = "Stop the current stream or preview before scanning.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
 }
 
 /** Simple message dialog for import errors and blocked scanner state. */
@@ -816,7 +766,7 @@ private fun EmptyState() {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Tap + to add your first streaming destination.",
+            text = "Endpoints are added by scanning your platform's QR code — tap + to scan.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
